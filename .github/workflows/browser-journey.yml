@@ -1,0 +1,36 @@
+name: ASC3ND flipbook browser journeys
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm install --no-save @playwright/test
+          npx playwright install --with-deps chromium
+      - name: Launch static app and check readiness
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/asc3nd-serve.log 2>&1 &
+          echo $! > /tmp/asc3nd-serve.pid
+          for i in $(seq 1 30); do curl --fail --silent http://127.0.0.1:4173/ >/dev/null && exit 0; sleep 1; done
+          cat /tmp/asc3nd-serve.log
+          exit 1
+      - name: Drive client review journeys
+        run: npx playwright test qa/flipbook.spec.cjs --reporter=line --workers=1
+      - name: Upload screenshots and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flipbook-browser-evidence
+          path: test-results/
+          if-no-files-found: ignore
