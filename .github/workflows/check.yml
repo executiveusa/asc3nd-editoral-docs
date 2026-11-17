@@ -37,9 +37,18 @@ jobs:
           assert p.parts, "Missing inline review script"
           js="\n".join(p.parts)
           Path("/tmp/asc3nd-review-check.js").write_text(js)
-          for x in ("Before", "AFTER", "CLIENT INPUT PENDING", "localStorage", "prefers-reduced-motion", "aria-label"):
+          for x in ("Before", "AFTER", "FROM ASC3ND", "localStorage", "prefers-reduced-motion", "aria-label"):
               assert x.lower() in html.lower(), x
-          assert '"story"' in js and '"project-joy"' in js and '"open"' in js
+          import json, re
+          match = re.search(r"const slides=(\[.*?\]);\s*const KEY=", js, re.S)
+          assert match, "Missing slide data"
+          slides = json.loads(match.group(1))
+          assert len(slides) == 49, "Expected 43 requests and six client items"
+          assert [x["id"] for x in slides[:43]] == [f"request-{n:02d}" for n in range(1, 44)]
+          assert all(x["clientNeed"] for x in slides[-6:])
+          assert sum(bool(x["clientNeed"]) for x in slides) == 6
+          assert len({x["id"] for x in slides}) == len(slides)
+          assert '"open"' in js
           print("Static document and content markers verified")
           PY
           node --check /tmp/asc3nd-review-check.js
