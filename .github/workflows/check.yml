@@ -1,0 +1,45 @@
+name: Editorial review mockup checks
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate static page and script syntax
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.capture = False
+                  self.parts = []
+              def handle_starttag(self, tag, attrs):
+                  if tag == "script" and not dict(attrs).get("src"):
+                      self.capture = True
+              def handle_data(self, data):
+                  if self.capture:
+                      self.parts.append(data)
+              def handle_endtag(self, tag):
+                  if tag == "script":
+                      self.capture = False
+          html=Path("index.html").read_text()
+          p=Scripts();p.feed(html)
+          assert p.parts, "Missing inline review script"
+          js="\n".join(p.parts)
+          Path("/tmp/asc3nd-review-check.js").write_text(js)
+          for x in ("Before", "AFTER", "CLIENT INPUT PENDING", "localStorage", "prefers-reduced-motion", "aria-label"):
+              assert x.lower() in html.lower(), x
+          assert '"story"' in js and '"project-joy"' in js and '"open"' in js
+          print("Static document and content markers verified")
+          PY
+          node --check /tmp/asc3nd-review-check.js
