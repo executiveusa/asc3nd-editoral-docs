@@ -43,3 +43,5 @@ jobs:
           print("Static document and content markers verified")
           PY
           node --check /tmp/asc3nd-review-check.js
+          node --check api/review.js
+          node -e "const fs=require('fs'); const html=fs.readFileSync('index.html','utf8'); const api=fs.readFileSync('api/review.js','utf8'); if(!html.includes('assets/asc3nd-collective-logo.webp') || !fs.existsSync('assets/asc3nd-collective-logo.webp') || !html.includes('connectReview') || !html.includes('reportHTML') || !api.includes('timingSafeEqual')) process.exit(1); console.log('Review assets, remote autosave code and exports present')"
