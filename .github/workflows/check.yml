@@ -48,7 +48,7 @@ jobs:
           assert all(x["clientNeed"] for x in slides[-6:])
           assert sum(bool(x["clientNeed"]) for x in slides) == 6
           assert len({x["id"] for x in slides}) == len(slides)
-          assert '"open"' in js
+          assert "connectReview" in js and "reportHTML" in js
           print("Static document and content markers verified")
           PY
           node --check /tmp/asc3nd-review-check.js
