@@ -1,0 +1,10 @@
+{
+  "name": "asc3nd-editorial-review",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Static editorial review with one protected Vercel review API",
+  "scripts": {
+    "check": "node --check api/review.js"
+  }
+}

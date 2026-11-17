@@ -1,0 +1,56 @@
+name: Editorial review mockup checks
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate static page and script syntax
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.capture = False
+                  self.parts = []
+              def handle_starttag(self, tag, attrs):
+                  if tag == "script" and not dict(attrs).get("src"):
+                      self.capture = True
+              def handle_data(self, data):
+                  if self.capture:
+                      self.parts.append(data)
+              def handle_endtag(self, tag):
+                  if tag == "script":
+                      self.capture = False
+          html=Path("index.html").read_text()
+          p=Scripts();p.feed(html)
+          assert p.parts, "Missing inline review script"
+          js="\n".join(p.parts)
+          Path("/tmp/asc3nd-review-check.js").write_text(js)
+          for x in ("Before", "AFTER", "FROM ASC3ND", "localStorage", "prefers-reduced-motion", "aria-label"):
+              assert x.lower() in html.lower(), x
+          import json, re
+          match = re.search(r"const slides=(\[.*?\]);\s*const KEY=", js, re.S)
+          assert match, "Missing slide data"
+          slides = json.loads(match.group(1))
+          assert len(slides) == 49, "Expected 43 requests and six client items"
+          assert [x["id"] for x in slides[:43]] == [f"request-{n:02d}" for n in range(1, 44)]
+          assert all(x["clientNeed"] for x in slides[-6:])
+          assert sum(bool(x["clientNeed"]) for x in slides) == 6
+          assert len({x["id"] for x in slides}) == len(slides)
+          assert "connectReview" in js and "reportHTML" in js
+          print("Static document and content markers verified")
+          PY
+          node --check /tmp/asc3nd-review-check.js
+          node --check api/review.js
+          node -e "const fs=require('fs'); const html=fs.readFileSync('index.html','utf8'); const api=fs.readFileSync('api/review.js','utf8'); if(!html.includes('assets/asc3nd-collective-logo.webp') || !fs.existsSync('assets/asc3nd-collective-logo.webp') || !html.includes('connectReview') || !html.includes('reportHTML') || !api.includes('timingSafeEqual')) process.exit(1); console.log('Review assets, remote autosave code and exports present')"
