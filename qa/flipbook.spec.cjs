@@ -32,8 +32,8 @@ test('desktop: cover, next, previous, contents, close, escape and return to cove
   await expect(page.locator('#cover')).toBeVisible();
   await expect(page.locator('a.home-site')).toHaveAttribute('href','https://asc3nd.org/');
 });
-test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 test('mobile: open, navigate, close long drawer, return to cover', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(root);
   await expect(page.locator('#cover')).toBeVisible();
   await page.locator('#begin').click();
