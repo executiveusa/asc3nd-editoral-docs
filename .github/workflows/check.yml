@@ -43,9 +43,11 @@ jobs:
           match = re.search(r"const slides=(\[.*?\]);\s*const KEY=", js, re.S)
           assert match, "Missing slide data"
           slides = json.loads(match.group(1))
-          assert len(slides) == 49, "Expected 43 requests and six client items"
+          assert len(slides) == 53, "Expected 43 requests, six client items, and four release updates"
           assert [x["id"] for x in slides[:43]] == [f"request-{n:02d}" for n in range(1, 44)]
-          assert all(x["clientNeed"] for x in slides[-6:])
+          assert all(x["clientNeed"] for x in slides[43:49])
+          assert [x["id"] for x in slides[49:]] == ["release-header-logo","release-email-spacing","release-privacy","release-youth-safety"]
+          assert all(x["status"] == "implemented" and not x["clientNeed"] for x in slides[49:])
           assert sum(bool(x["clientNeed"]) for x in slides) == 6
           assert len({x["id"] for x in slides}) == len(slides)
           assert "connectReview" in js and "reportHTML" in js
