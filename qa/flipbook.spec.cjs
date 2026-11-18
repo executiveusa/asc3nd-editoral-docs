@@ -57,3 +57,39 @@ test('mobile: open, navigate, close long drawer, return to cover', async ({ page
   await page.locator('#coverNav').click();
   await expect(page.locator('#cover')).toBeVisible();
 });
+
+test('mobile polish: safe area, touch responsiveness, reduced motion and content preservation', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(root);
+  const viewport = await page.locator('meta[name="viewport"]').getAttribute('content');
+  expect(viewport).toContain('viewport-fit=cover');
+  expect(viewport).not.toContain('maximum-scale=1');
+  await page.locator('#begin').click();
+  const duration = await page.locator('#paper').evaluate(el => {
+    el.classList.add('turn-next');
+    return getComputedStyle(el).animationDuration;
+  });
+  expect(parseFloat(duration)).toBeLessThanOrEqual(0.5);
+  await expect(page.locator('#count')).toHaveText('1 of 53');
+  const scroll = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+  expect(scroll.page).toBeLessThanOrEqual(scroll.viewport + 1);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const reduced = await page.locator('#paper').evaluate(el => getComputedStyle(el).animationName);
+  expect(reduced).toBe('none');
+});
+test('mobile polish: coarse pointer tap targets and scroll protection', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  await page.goto(root);
+  await page.locator('#begin').click();
+  const touches = await page.locator('#next').evaluate(el => {
+    const c = getComputedStyle(el);
+    return { action: c.touchAction, select: c.userSelect };
+  });
+  expect(touches.action).toBe('manipulation');
+  expect(touches.select).toBe('none');
+  await page.locator('#next').tap();
+  await expect(page.locator('#count')).toHaveText('2 of 53');
+  await context.close();
+});
