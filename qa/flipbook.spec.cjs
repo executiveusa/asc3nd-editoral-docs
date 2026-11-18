@@ -24,7 +24,7 @@ test('desktop: cover, next, previous, contents, close, escape and return to cove
   await expect(page.locator('#tocDialog')).toBeHidden();
   await page.locator('#contents').click();
   await page.locator('#tocList button').last().click();
-  await expect(page.locator('#count')).toHaveText('49 of 53');
+  await expect(page.locator('#count')).toHaveText('53 of 53');
   await expect(page.locator('#area')).toContainText('RELEASE UPDATE');
   await expect(page.locator('#title')).toHaveText('Approved Youth Safety page copy');
   await expect(page.locator('#after')).toContainText('1-866-ENDHARM');
