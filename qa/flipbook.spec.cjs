@@ -106,7 +106,7 @@ test('reviewer: no access code, autosave confirmation and reload restore', async
       cloud.set(data.slideId,{comment:data.comment,decision:data.decision,updatedAt:new Date().toISOString(),reviewerName:data.reviewerName});
       result = {ok:true,updatedAt:new Date().toISOString(),ownerNotificationQueued:true};
     }
-    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(result)});
+    await route.fulfill({status:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'http://127.0.0.1:4173','Access-Control-Allow-Headers':'content-type','Access-Control-Allow-Methods':'GET, PUT, OPTIONS'},body:JSON.stringify(result)});
   });
   await page.goto(root);
   await page.locator('#begin').click();
