@@ -19,25 +19,25 @@ Open `index.html` in a browser, or deploy the same static file through an approv
 
 ## Interaction and accessibility
 
-- 12 short slides, one clear change per page; 2-column desktop comparisons, stacked panels on mobile.
+- 53 slides: 43 original requests, six client-input items and four later release updates, with verbatim founder text, 2-column desktop comparisons and stacked mobile panels.
 - Large click targets, swipe left/right, arrow keys, previous/next, a contents chooser and progress.
 - Paper-turn transition can be toggled off. Respects `prefers-reduced-motion`; no autoplay audio.
 - Feedback can be marked Looks good / Needs a change / Question and commented upon.
-- **Feedback is a local prototype only.** It stays in the current browser's `localStorage`, can be exported as JSON, and does **not** sync between devices or submit to a server.
-- All live links open verified site routes. No passwords, personal access tokens, or public write endpoints.
+- **Code-free cloud feedback:** Comments and decisions save automatically through the deployed `asc3nd-editbook-review` Supabase Edge Function. Each browser has its own randomly generated session; localStorage is an offline backup, not the owner inbox.
+- Reviewers do not need to enter a code or password. Browser submissions use a public, origin-restricted endpoint with no service credentials in the HTML. The owner receives queued email notifications at `executiveusa@gmail.com` via the existing ASC3ND notification system; the existing system reports successful provider delivery for a controlled QA message.
 
-## Required before sending to client
+## Release gate and verification
 
-1. Verify screenshots and visual presentation at 320px/390px/768px/1440px, including Chrome and Safari if possible.
-2. Verify content against the source file, recent merged site and client constraints.
-3. Add a real owner-controlled feedback backend with an unguessable reviewer invitation, authentication or signed access, server-side input validation, and append-only decision history. Reuse current ASC3ND server capabilities before creating new tables.
-4. Require save acknowledgement, replay-safe submissions, delete/export controls, and permission-tested reviewer/admin boundaries. Do **not** present browser-local saves as submitted feedback.
-5. Independent review, owner approval, deploy preview and rollback. Do not change the `asc3nd.org` apex DNS.
-6. Replace external logo hotlink with an owner-controlled approved asset when publishing (the mocked page includes a CSS text identity fallback).
+- The public no-code API at `https://cyxdevcjycmffhmwxojh.supabase.co/functions/v1/asc3nd-editbook-review` is deployed with reviewer-session isolation and request validation. No staff or service token is sent to clients.
+- The live integration test persists and reads back a synthetic empty review; other sessions cannot read it. Invalid slides, oversized notes and disallowed origins are rejected.
+- A separate controlled QA comment was queued for owner notification, marked `sent` by ASC3ND's existing scheduled Resend worker, and independently found in `executiveusa@gmail.com`; its synthetic progress row was then deleted.
+- Every meaningful comment or decision is persisted centrally. First update per slide queues owner email; subsequent updates during the two-minute notification cooldown remain in the same database record. The background email dispatcher runs every minute.
+- Browser UI must show `Saved to ASC3ND review inbox` only after the cloud server acknowledges persistence. When storage fails, notes remain local and the UI states delivery has not occurred.
+- Confirm a Vercel preview and the stable production alias before presenting this as a deployed frontend. The team's free-tier Vercel API deployment quota has previously blocked production deployments; no production status should be inferred from passing CI.
+- Anonymous public review links can be spammed by determined attackers even with origin checks and input bounds; monitor submission rates, control the distribution of the review link, and add bot protection if needed.
+- Existing `/api/review.js` (client/staff bearer-token API) is legacy and remains protected, but is no longer called by the code-free page. Do not provision its service key unnecessarily.
 
-## Scope
-
-This PR is a **mockup**, not a production feedback portal. No extra agent framework, no new database, no new AI copy, no secrets. Reuse before adding.
+Rollback: revert the frontend PR. Disable or redeploy `asc3nd-editbook-review` to stop incoming anonymous reviews; drop only `trg_asc3nd_review_owner_notification` and `asc3nd_private.queue_editbook_review_update()` to stop email alerts. Do **not** delete stored client feedback as part of rollback.
 
 ## November 17 database inspection and connected review protocol
 
@@ -52,24 +52,13 @@ The canonical participation API in `executiveusa/asc3nd-brand-site` uses Supabas
 - `asc3nd.followup_tasks`: **3**.
 - `asc3nd.events`: **1** stored event, legacy name `Community Cuts for Kids` and venue `Tangles & Locs`. Public brand website now calls the initiative `Fresh Fade, Fresh Grade`. Do not rewrite historical identifiers without a reviewed migration.
 
-### Secure autosave design (code on feature branch)
-- The already existing `public.asc3nd_client_guides` and `public.asc3nd_client_guide_progress` tables are reused.
-- Created unpublished guide row `website-review-2026-11` in the canonical database, preserving the existing Instagram guide. No participant records were copied.
-- `api/review.js` handles GET (read both reviewers' decisions) and PUT (save only the authenticated reviewer's slide). Comments are capped at 3000 chars; slide IDs and decisions validated.
-- A private reviewer code is exchanged for server-side access. One code for the client, one for ASC3ND staff; codes are **never committed to Git**. API compares hashes with a constant-time check.
-- The API uses Supabase service-role credentials **only server-side**. The static reader does not receive the service key.
-- Review notes still save locally when the API is unavailable. Failed server writes are marked as unsynced, not as completed.
-- **Server persistence is not live until the required environment variables are provisioned and an authorized client/staff workflow is tested.**
+### Current shared feedback architecture
 
-### Vercel configuration before enabling shared feedback
-Provision these in Vercel project `asc3nd-editoral-docs`, in the **preview** environment first, from the owner's password manager or approved integration. Do not paste secrets into a PR, issue, document, or chat log.
-
-- `SUPABASE_URL`: the verified ASC3ND canonical Supabase API URL.
-- `SUPABASE_SERVICE_ROLE_KEY`: service-only credential held by the server, never exposed in HTML.
-- `ASC3ND_REVIEW_CLIENT_TOKEN`: an independently generated, random access token of at least 24 characters.
-- `ASC3ND_REVIEW_STAFF_TOKEN`: a separate independently generated token of the same minimum strength.
-
-Send the client access code only over an appropriate private channel. Server routes must respond 401 for missing/wrong tokens. Verify GET and PUT from two authenticated browsers, autosave after reload, PDF/Google Docs export, cross-role display, and that a client token cannot impersonate staff. Consider rate limiting and expiring reviewer codes before broader production launch.
+- **Storage:** existing `public.asc3nd_client_guide_progress` rows with `guide_slug='website-review-2026-11'`, client keys `public:<browser-session>:<slide-id>`, and per-slide comment history.
+- **Edge Function:** source `supabase/functions/asc3nd-editbook-review/index.ts`. Public PUT validates slide IDs, comment length, decision, session and origin; public GET returns only that session's own notes. The Supabase service key remains inside the managed Edge Function.
+- **Notifications:** `supabase/migrations/20261118055000_asc3nd_review_owner_notification_queue.sql` records the independently tested trigger that enqueues review messages into the pre-existing `asc3nd.site_notification_outbox`. The existing minute cron and `asc3nd-site-notifications` Resend worker forward these to `executiveusa@gmail.com`.
+- **Client:** `index.html` saves locally instantly, automatically syncs on debounce and retries failed cloud saves. An optional reviewer name is attached to the note, without requiring sign-in.
+- **Safety:** do not collect youth identifying information; public comments are untrusted text and are escaped by the existing email worker. No review endpoint exposes staff or volunteer CRM records.
 
 ### Data download boundary
 
