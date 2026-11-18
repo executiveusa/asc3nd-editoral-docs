@@ -93,3 +93,40 @@ test('mobile polish: coarse pointer tap targets and scroll protection', async ({
   await expect(page.locator('#count')).toHaveText('2 of 53');
   await context.close();
 });
+
+test('reviewer: no access code, autosave confirmation and reload restore', async ({page}) => {
+  const cloud = new Map();
+  await page.route('https://cyxdevcjycmffhmwxojh.supabase.co/functions/v1/asc3nd-editbook-review**', async route => {
+    const request = route.request();
+    let result = {ok:true};
+    if(request.method()==='GET'){
+      result = {ok:true,responses:Object.fromEntries(cloud)};
+    }else if(request.method()==='PUT'){
+      const data = request.postDataJSON();
+      cloud.set(data.slideId,{comment:data.comment,decision:data.decision,updatedAt:new Date().toISOString(),reviewerName:data.reviewerName});
+      result = {ok:true,updatedAt:new Date().toISOString(),ownerNotificationQueued:true};
+    }
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(result)});
+  });
+  await page.goto(root);
+  await page.locator('#begin').click();
+  await expect(page.locator('#reviewAccess')).toHaveCount(0);
+  await page.locator('#reviewerName').fill('ASC3ND QA');
+  await page.locator('#comment').fill('Please adjust the footer spacing.');
+  await expect(page.locator('#save-status')).toContainText('Saved to ASC3ND review inbox',{timeout:15000});
+  expect(cloud.get('request-01')?.comment).toBe('Please adjust the footer spacing.');
+  await page.reload();
+  await page.locator('#begin').click();
+  await expect(page.locator('#comment')).toHaveValue('Please adjust the footer spacing.');
+  await expect(page.locator('#reviewAccess')).toHaveCount(0);
+});
+test('reviewer: failed cloud save must not be shown as submitted', async ({page}) => {
+  await page.route('https://cyxdevcjycmffhmwxojh.supabase.co/functions/v1/asc3nd-editbook-review**',async route => {
+    await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({ok:false,error:'test_unavailable'})});
+  });
+  await page.goto(root);
+  await page.locator('#begin').click();
+  await page.locator('#comment').fill('Offline QA note');
+  await expect(page.locator('#save-status')).toContainText('Cloud save failed',{timeout:15000});
+  await expect(page.locator('#save-status')).not.toContainText('Saved to ASC3ND review inbox');
+});
