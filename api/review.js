@@ -3,7 +3,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 const SLUG = "website-review-2026-11";
-const VALID_SLIDES = new Set(["story","founders","pillars","footer","giving","events","event-name","event-structure","gallery","involved","project-joy","open"]);
+// IDs must match the reader slides; preserve legacy IDs for previously saved reviews.
+const VALID_SLIDES = new Set([...Array.from({length:43},(_,i)=>`request-${String(i+1).padStart(2,"0")}`),...Array.from({length:6},(_,i)=>`client-input-${i+1}`),"release-header-logo","release-email-spacing","release-privacy","release-youth-safety","story","founders","pillars","footer","giving","events","event-name","event-structure","gallery","involved","project-joy","open"]);
 const VALID_DECISIONS = new Set(["approve","change","question"]);
 function h(s) { return createHash("sha256").update(String(s)).digest(); }
 function equal(a,b) { return timingSafeEqual(h(a),h(b)); }
